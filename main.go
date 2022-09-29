@@ -1,40 +1,150 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
+	"sync/atomic"
 	"time"
 
 	sdk "github.com/Conflux-Chain/go-conflux-sdk"
 	"github.com/Conflux-Chain/go-conflux-sdk/types"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/Conflux-Chain/go-conflux-sdk/types/cfxaddress"
+	"github.com/wangdayong228/minimal_transfer/cfx_tx_engine"
 	minimaltransfer "github.com/wangdayong228/minimal_transfer/contracts"
 )
 
 func main() {
-	client := sdk.MustNewClient("http://net8888cfx.confluxrpc.com", sdk.ClientOption{
-		KeystorePath: "keystore",
-	})
 
-	if len(client.AccountManager.List()) == 0 {
-		_, err := client.AccountManager.ImportKey("0f7d769ee463fe97d40dc5a527f3140dcd83fabb7846a15d00142cd1821e8979", "")
-		if err != nil {
+	am := initAccountManager()
+	cAddr := cfxaddress.MustNewFromBase32("net8888:aam1eawbm9pzp0dnwv96tts5shnbdfv9nucbh4c593")
+
+	normalSum, cSum := int32(0), int32(0)
+
+	go func() {
+		client := sdk.MustNewClient("http://net8888cfx.confluxrpc.com", sdk.ClientOption{
+			RetryCount: 3,
+		})
+		client.SetAccountManager(am)
+		users := client.AccountManager.List()
+
+		instance := deploy(client, cAddr)
+		for {
+			from := users[rand.Int()%len(users)]
+			to := users[rand.Int()%len(users)]
+
+			delta := rand.Int() % 700
+
+			_, hash, err := instance.SimpleTransferTransactor.Run(&types.ContractMethodSendOption{
+				From:     &cAddr,
+				GasPrice: types.NewBigInt(2e9),
+			}, from.MustGetCommonAddress(), to.MustGetCommonAddress(), big.NewInt(int64(5000+delta)))
+
+			if err != nil {
+				fmt.Printf("cwei err %v\n", err)
+				time.Sleep(time.Second)
+				continue
+			}
+			time.Sleep(time.Second / 5)
+			fmt.Printf("cwei hash %v\n", hash)
+
+			atomic.AddInt32(&cSum, 1)
+			if cSum%10 == 0 {
+				fmt.Printf("[%v] cwei sent %v\n", time.Now(), cSum)
+			}
+		}
+	}()
+
+	urls := []string{
+		"http://101.132.158.162:12537",
+		// "http://39.100.97.209:12537",
+		"http://47.92.105.52:12537",
+		"http://47.92.7.84:12537",
+	}
+
+	for ui := 0; ui < len(urls); ui++ {
+		subClient := sdk.MustNewClient(urls[ui], sdk.ClientOption{
+			RetryCount: 3,
+		})
+		subClient.SetAccountManager(am)
+		users := subClient.AccountManager.List()[:100]
+
+		userGroupLen := len(users) / len(urls)
+		for i := 0; i < userGroupLen; i++ {
+
+			go func(index int, _client *sdk.Client) {
+				if users[index].String() == cAddr.String() {
+					return
+				}
+
+				nodeurl := _client.GetNodeURL()
+
+				for {
+					status, err := _client.GetStatus()
+					if err != nil {
+						time.Sleep(time.Second)
+						fmt.Printf("get status err:%v\n", err)
+						continue
+					}
+					for j := 0; j < 1000; j++ {
+						tx := types.UnsignedTransaction{}
+						from := users[index] //users[rand.Int()%len(users)]
+						tx.From = &from
+						tx.To = &from
+						tx.Gas = types.NewBigInt(21000)
+						tx.GasPrice = types.NewBigInt(1e9)
+						tx.EpochHeight = &status.EpochNumber
+						tx.StorageLimit = types.NewUint64(0)
+						tx.ChainID = types.NewUint(uint(uint64(status.ChainID)))
+
+						_, err := _client.SendTransaction(tx)
+						if err != nil {
+							fmt.Printf("%v normal err: %v\n", nodeurl, err)
+							time.Sleep(time.Second)
+							continue
+						}
+						// fmt.Printf("normal hash %v\n", hash)
+						atomic.AddInt32(&normalSum, 1)
+						if normalSum%1000 == 0 {
+							fmt.Printf("[%v] sent %v\n", time.Now(), normalSum)
+						}
+					}
+				}
+
+			}(i+ui*userGroupLen, subClient)
+		}
+	}
+	select {}
+}
+
+func initAccountManager() sdk.AccountManagerOperator {
+	am := cfx_tx_engine.NewPrivatekeyAccountManager(nil, 8888)
+	am.ImportKey("0f7d769ee463fe97d40dc5a527f3140dcd83fabb7846a15d00142cd1821e8979", "")
+
+	content, err := ioutil.ReadFile("/Users/dayong/myspace/mywork/minimal_transfer/private_keys.json")
+	if err != nil {
+		panic(err)
+	}
+
+	accounts := []PrivatekeyAccount{}
+	err = json.Unmarshal(content, &accounts)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, a := range accounts {
+		if _, err = am.ImportKey(a.Privatekey, ""); err != nil {
 			panic(err)
 		}
 	}
 
-	addr, err := client.AccountManager.GetDefault()
-	if err != nil {
-		panic(err)
-	}
+	return am
+}
 
-	err = client.AccountManager.UnlockDefault("")
-	if err != nil {
-		panic(err)
-	}
-
-	_, hash, _, err := minimaltransfer.DeploySimpleTransfer(&types.ContractMethodSendOption{From: addr}, client)
+func deploy(client *sdk.Client, cAddr cfxaddress.Address) *minimaltransfer.SimpleTransfer {
+	_, hash, _, err := minimaltransfer.DeploySimpleTransfer(&types.ContractMethodSendOption{From: &cAddr}, client)
 	if err != nil {
 		panic(err)
 	}
@@ -49,41 +159,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	users := []common.Address{
-		common.HexToAddress("0x292f04a44506c2fd49bac032e1ca148c35a478c8"),
-		common.HexToAddress("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"),
-		common.HexToAddress("0x55fe002aeff02f77364de339a1292923a15844b8"),
-		common.HexToAddress("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"),
-		common.HexToAddress("0x9a49227a58a945cc9ba13f16debdce141b8f07b7"),
-		common.HexToAddress("0xdac17f958d2ee523a2206206994597c13d831ec7"),
-	}
-
-	for {
-		from := users[rand.Int()%len(users)]
-		to := users[rand.Int()%len(users)]
-
-		delta := rand.Int() % 700
-		_, hash, err = instance.SimpleTransferTransactor.Run(nil, from, to, big.NewInt(int64(2800+delta)))
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("c hash %v\n", hash)
-	}
+	return instance
 }
-
-// func initAccountManager() {
-// 	am := cfx_tx_engine.NewPrivatekeyAccountManager(nil, 8888)
-
-// 	_, err := client.AccountManager.ImportKey("0f7d769ee463fe97d40dc5a527f3140dcd83fabb7846a15d00142cd1821e8979", "")
-
-// 	addr, err := client.AccountManager.GetDefault()
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	err = client.AccountManager.UnlockDefault("")
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// }
