@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/wangdayong228/minimal_transfer/cfx_tx_engine"
+	"github.com/wangdayong228/benchmark_conflux_transfer/cfx_tx_engine"
 )
 
 // type PrivatekeyAccount struct {

@@ -12,8 +12,8 @@ import (
 	sdk "github.com/Conflux-Chain/go-conflux-sdk"
 	"github.com/Conflux-Chain/go-conflux-sdk/types"
 	"github.com/Conflux-Chain/go-conflux-sdk/types/cfxaddress"
-	"github.com/wangdayong228/minimal_transfer/cfx_tx_engine"
-	minimaltransfer "github.com/wangdayong228/minimal_transfer/contracts"
+	"github.com/wangdayong228/benchmark_conflux_transfer/cfx_tx_engine"
+	minimaltransfer "github.com/wangdayong228/benchmark_conflux_transfer/contracts"
 )
 
 func main() {
@@ -121,7 +121,7 @@ func initAccountManager() sdk.AccountManagerOperator {
 	am := cfx_tx_engine.NewPrivatekeyAccountManager(nil, ENV_CHAIN_ID)
 	am.ImportKey("0f7d769ee463fe97d40dc5a527f3140dcd83fabb7846a15d00142cd1821e8979", "")
 
-	content, err := ioutil.ReadFile("/Users/dayong/myspace/mywork/minimal_transfer/private_keys.json")
+	content, err := ioutil.ReadFile("/Users/dayong/myspace/mywork/benchmark_conflux_transfer/private_keys.json")
 	if err != nil {
 		panic(err)
 	}

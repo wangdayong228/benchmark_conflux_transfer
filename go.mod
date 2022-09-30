@@ -1,4 +1,4 @@
-module github.com/wangdayong228/minimal_transfer
+module github.com/wangdayong228/benchmark_conflux_transfer
 
 require (
 	github.com/Conflux-Chain/go-conflux-sdk v1.4.2

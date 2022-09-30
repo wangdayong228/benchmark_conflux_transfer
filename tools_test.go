@@ -18,7 +18,7 @@ func TestGenAccounts(t *testing.T) {
 	keys := genPrivatekeyAccounts(1, 1000)
 	fmt.Println(keys)
 	j, _ := json.Marshal(keys)
-	err := ioutil.WriteFile("/Users/dayong/myspace/mywork/minimal_transfer/private_keys.json", j, fs.ModePerm)
+	err := ioutil.WriteFile("/Users/dayong/myspace/mywork/benchmark_conflux_transfer/private_keys.json", j, fs.ModePerm)
 	assert.NoError(t, err)
 }
 
