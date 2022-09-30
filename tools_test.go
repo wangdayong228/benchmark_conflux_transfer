@@ -15,7 +15,7 @@ import (
 )
 
 func TestGenAccounts(t *testing.T) {
-	keys := genPrivatekeyAccounts(1000)
+	keys := genPrivatekeyAccounts(1, 1000)
 	fmt.Println(keys)
 	j, _ := json.Marshal(keys)
 	err := ioutil.WriteFile("/Users/dayong/myspace/mywork/minimal_transfer/private_keys.json", j, fs.ModePerm)
@@ -23,12 +23,18 @@ func TestGenAccounts(t *testing.T) {
 }
 
 func TestDispatchTreasure(t *testing.T) {
-	client := sdk.MustNewClient("http://net8888cfx.confluxrpc.com", sdk.ClientOption{
+
+	// url := "http://net8888cfx.confluxrpc.com"
+	// cAddr := cfxaddress.MustNewFromBase32("net8888:aam1eawbm9pzp0dnwv96tts5shnbdfv9nucbh4c593")
+
+	url := "http://test.confluxrpc.com"
+	cAddr := cfxaddress.MustNewFromBase32("cfxtest:aam1eawbm9pzp0dnwv96tts5shnbdfv9nuwu7zgzz8")
+
+	client := sdk.MustNewClient(url, sdk.ClientOption{
 		RetryCount: 3,
 	})
 	client.SetAccountManager(initAccountManager())
 	am := initAccountManager()
-	cAddr := cfxaddress.MustNewFromBase32("net8888:aam1eawbm9pzp0dnwv96tts5shnbdfv9nucbh4c593")
 	d, _ := unit.NewDripFromString("10 CFX")
 
 	users := am.List()

@@ -19,12 +19,15 @@ import (
 func main() {
 
 	am := initAccountManager()
-	cAddr := cfxaddress.MustNewFromBase32("net8888:aam1eawbm9pzp0dnwv96tts5shnbdfv9nucbh4c593")
+	cAddr := cfxaddress.MustNewFromHex("0x1572024157d956586b947fc7bddb71d611963f5c", ENV_CHAIN_ID)
 
 	normalSum, cSum := int32(0), int32(0)
 
 	go func() {
-		client := sdk.MustNewClient("http://net8888cfx.confluxrpc.com", sdk.ClientOption{
+		url := GetUrls(ENV_CHAIN_ID)[0]
+		//"http://test.confluxrpc.com"
+		// url:="http://net8888cfx.confluxrpc.com"
+		client := sdk.MustNewClient(url, sdk.ClientOption{
 			RetryCount: 3,
 		})
 		client.SetAccountManager(am)
@@ -47,7 +50,7 @@ func main() {
 				time.Sleep(time.Second)
 				continue
 			}
-			time.Sleep(time.Second / 5)
+			time.Sleep(time.Second)
 			fmt.Printf("cwei hash %v\n", hash)
 
 			atomic.AddInt32(&cSum, 1)
@@ -57,12 +60,7 @@ func main() {
 		}
 	}()
 
-	urls := []string{
-		"http://101.132.158.162:12537",
-		// "http://39.100.97.209:12537",
-		"http://47.92.105.52:12537",
-		"http://47.92.7.84:12537",
-	}
+	urls := GetUrls(ENV_CHAIN_ID)
 
 	for ui := 0; ui < len(urls); ui++ {
 		subClient := sdk.MustNewClient(urls[ui], sdk.ClientOption{
@@ -120,7 +118,7 @@ func main() {
 }
 
 func initAccountManager() sdk.AccountManagerOperator {
-	am := cfx_tx_engine.NewPrivatekeyAccountManager(nil, 8888)
+	am := cfx_tx_engine.NewPrivatekeyAccountManager(nil, ENV_CHAIN_ID)
 	am.ImportKey("0f7d769ee463fe97d40dc5a527f3140dcd83fabb7846a15d00142cd1821e8979", "")
 
 	content, err := ioutil.ReadFile("/Users/dayong/myspace/mywork/minimal_transfer/private_keys.json")
@@ -128,14 +126,14 @@ func initAccountManager() sdk.AccountManagerOperator {
 		panic(err)
 	}
 
-	accounts := []PrivatekeyAccount{}
-	err = json.Unmarshal(content, &accounts)
+	privateKeys := []string{}
+	err = json.Unmarshal(content, &privateKeys)
 	if err != nil {
 		panic(err)
 	}
 
-	for _, a := range accounts {
-		if _, err = am.ImportKey(a.Privatekey, ""); err != nil {
+	for _, k := range privateKeys {
+		if _, err = am.ImportKey(k, ""); err != nil {
 			panic(err)
 		}
 	}
